@@ -1,0 +1,231 @@
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
+};
+
+interface SearchResult {
+  title: string;
+  link: string;
+  snippet: string;
+}
+
+async function generateSearchQueries(userQuery: string, openaiKey: string): Promise<string[]> {
+  try {
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${openaiKey}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content: "You are a search query optimizer. Generate 3-5 diverse, optimized search queries to comprehensively answer the user's question. Return ONLY a JSON array of strings, no explanations."
+          },
+          {
+            role: "user",
+            content: `Generate search queries for: ${userQuery}`
+          }
+        ],
+        temperature: 0.7,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`OpenAI API error: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    const content = data.choices[0].message.content.trim();
+
+    const jsonMatch = content.match(/\[[\s\S]*\]/);
+    if (jsonMatch) {
+      return JSON.parse(jsonMatch[0]);
+    }
+
+    return [userQuery];
+  } catch (error) {
+    console.error("Error generating search queries:", error);
+    return [userQuery];
+  }
+}
+
+async function searchWeb(query: string, serpApiKey: string): Promise<SearchResult[]> {
+  try {
+    const url = `https://serpapi.com/search.json?q=${encodeURIComponent(query)}&api_key=${serpApiKey}&num=5`;
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      throw new Error(`SerpAPI error: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    const results: SearchResult[] = [];
+
+    if (data.organic_results) {
+      for (const result of data.organic_results.slice(0, 5)) {
+        results.push({
+          title: result.title,
+          link: result.link,
+          snippet: result.snippet || "",
+        });
+      }
+    }
+
+    return results;
+  } catch (error) {
+    console.error("Error searching web:", error);
+    return [];
+  }
+}
+
+async function generateResponse(
+  userQuery: string,
+  searchResults: SearchResult[],
+  openaiKey: string
+): Promise<string> {
+  const resultsText = searchResults
+    .map((r, i) => `[${i + 1}] ${r.title}\n${r.snippet}\nSource: ${r.link}`)
+    .join("\n\n");
+
+  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${openaiKey}`,
+    },
+    body: JSON.stringify({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: `You are an AI assistant that provides accurate, well-structured answers based on search results.
+
+Instructions:
+- Analyze the search results provided
+- Synthesize information from multiple sources
+- Provide a clear, comprehensive answer
+- Use proper formatting with headings and bullet points where appropriate
+- Be concise but thorough
+- Highlight key insights
+- Ensure accuracy
+
+Format your response with:
+- Clear structure
+- Bullet points for lists
+- Short paragraphs
+- Key takeaways
+
+Rules:
+- Keep it simple and clear
+- Avoid unnecessary text
+- Focus on answering the user's question
+- Use information from the search results`
+        },
+        {
+          role: "user",
+          content: `User Question: ${userQuery}
+
+Search Results:
+${resultsText}
+
+Please provide a comprehensive answer based on these search results.`
+        }
+      ],
+      temperature: 0.7,
+      max_tokens: 1000,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`OpenAI API error: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  return data.choices[0].message.content;
+}
+
+Deno.serve(async (req: Request) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, {
+      status: 200,
+      headers: corsHeaders,
+    });
+  }
+
+  try {
+    const { query } = await req.json();
+
+    if (!query) {
+      return new Response(
+        JSON.stringify({ error: "Query is required" }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    const openaiKey = Deno.env.get("OPENAI_API_KEY");
+    const serpApiKey = Deno.env.get("SERP_API_KEY");
+
+    if (!openaiKey || !serpApiKey) {
+      return new Response(
+        JSON.stringify({ error: "API keys not configured" }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    const searchQueries = await generateSearchQueries(query, openaiKey);
+    console.log("Generated search queries:", searchQueries);
+
+    const allResults: SearchResult[] = [];
+    const seenLinks = new Set<string>();
+
+    for (const searchQuery of searchQueries) {
+      const results = await searchWeb(searchQuery, serpApiKey);
+      for (const result of results) {
+        if (!seenLinks.has(result.link)) {
+          seenLinks.add(result.link);
+          allResults.push(result);
+        }
+      }
+    }
+
+    console.log(`Found ${allResults.length} unique results`);
+
+    const topResults = allResults.slice(0, 10);
+
+    const aiResponse = await generateResponse(query, topResults, openaiKey);
+
+    return new Response(
+      JSON.stringify({
+        response: aiResponse,
+        sources: topResults.slice(0, 5),
+      }),
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+    );
+  } catch (error) {
+    console.error("Error in ai-search function:", error);
+    return new Response(
+      JSON.stringify({
+        error: "An error occurred processing your request",
+        details: error instanceof Error ? error.message : String(error),
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+    );
+  }
+});
