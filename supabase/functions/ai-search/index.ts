@@ -89,9 +89,11 @@ async function generateResponse(
   searchResults: SearchResult[],
   openaiKey: string
 ): Promise<string> {
-  const resultsText = searchResults
-    .map((r, i) => `[${i + 1}] ${r.title}\n${r.snippet}\nSource: ${r.link}`)
-    .join("\n\n");
+  const resultsText = searchResults.length > 0
+    ? searchResults
+        .map((r, i) => `[${i + 1}] ${r.title}\n${r.snippet}\nSource: ${r.link}`)
+        .join("\n\n")
+    : "No search results available. Provide a direct answer based on your knowledge.";
 
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
@@ -104,7 +106,7 @@ async function generateResponse(
       messages: [
         {
           role: "system",
-          content: `You are an AI assistant that provides accurate, well-structured answers based on search results.
+          content: `You are a helpful AI assistant that provides accurate, well-structured answers based on search results. You can respond in any language the user uses.
 
 Instructions:
 - Analyze the search results provided
@@ -114,10 +116,12 @@ Instructions:
 - Be concise but thorough
 - Highlight key insights
 - Ensure accuracy
+- Match the language of the user's question
+- If no search results are available, provide a direct answer
 
 Format your response with:
 - Clear structure
-- Bullet points for lists
+- Bullet points for lists when relevant
 - Short paragraphs
 - Key takeaways
 
@@ -125,7 +129,8 @@ Rules:
 - Keep it simple and clear
 - Avoid unnecessary text
 - Focus on answering the user's question
-- Use information from the search results`
+- Use information from the search results when available
+- Be helpful and informative`
         },
         {
           role: "user",
@@ -134,19 +139,24 @@ Rules:
 Search Results:
 ${resultsText}
 
-Please provide a comprehensive answer based on these search results.`
+Please provide a comprehensive answer based on these search results. Respond in the same language as the user's question.`
         }
       ],
       temperature: 0.7,
-      max_tokens: 1000,
+      max_tokens: 2000,
     }),
   });
 
   if (!response.ok) {
-    throw new Error(`OpenAI API error: ${response.statusText}`);
+    const errorData = await response.json();
+    console.error("OpenAI error response:", errorData);
+    throw new Error(`OpenAI API error: ${response.statusText} - ${JSON.stringify(errorData)}`);
   }
 
   const data = await response.json();
+  if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+    throw new Error("Invalid response from OpenAI API");
+  }
   return data.choices[0].message.content;
 }
 

@@ -109,6 +109,8 @@ export default function ChatContainer() {
       if (userMessageError) throw userMessageError;
 
       const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-search`;
+      console.log('Calling API:', apiUrl);
+
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
@@ -118,11 +120,20 @@ export default function ChatContainer() {
         body: JSON.stringify({ query: content, conversationId }),
       });
 
+      console.log('Response status:', response.status);
+
       if (!response.ok) {
-        throw new Error('Failed to get AI response');
+        const errorText = await response.text();
+        console.error('Error response:', errorText);
+        throw new Error(`API Error (${response.status}): ${errorText}`);
       }
 
       const data = await response.json();
+      console.log('AI Response:', data);
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
 
       const assistantMessage: Message = {
         id: crypto.randomUUID(),
@@ -151,14 +162,15 @@ export default function ChatContainer() {
 
       await loadConversations();
     } catch (error) {
-      console.error('Error sending message:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('Error sending message:', errorMessage);
       setMessages((prev) => [
         ...prev,
         {
           id: crypto.randomUUID(),
           conversation_id: currentConversationId || '',
           role: 'assistant',
-          content: 'Sorry, I encountered an error. Please try again.',
+          content: `Error: ${errorMessage}. Please make sure your API keys are configured correctly in your Supabase edge function secrets (OPENAI_API_KEY and SERP_API_KEY).`,
           created_at: new Date().toISOString(),
         },
       ]);
