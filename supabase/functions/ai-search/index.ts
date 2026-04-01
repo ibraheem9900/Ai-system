@@ -12,20 +12,20 @@ interface SearchResult {
   snippet: string;
 }
 
-async function generateSearchQueries(userQuery: string, openaiKey: string): Promise<string[]> {
+async function generateSearchQueries(userQuery: string, groqKey: string): Promise<string[]> {
   try {
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${openaiKey}`,
+        "Authorization": `Bearer ${groqKey}`,
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
+        model: "mixtral-8x7b-32768",
         messages: [
           {
             role: "system",
-            content: "You are a search query optimizer. Generate 3-5 diverse, optimized search queries to comprehensively answer the user's question. Return ONLY a JSON array of strings, no explanations."
+            content: "You are a search query optimizer. Generate 3-5 diverse, optimized search queries to comprehensively answer the user's question. Return ONLY a JSON array of strings, no explanations. Example: [\"query 1\", \"query 2\", \"query 3\"]"
           },
           {
             role: "user",
@@ -33,11 +33,13 @@ async function generateSearchQueries(userQuery: string, openaiKey: string): Prom
           }
         ],
         temperature: 0.7,
+        max_tokens: 500,
       }),
     });
 
     if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.statusText}`);
+      const errorData = await response.json();
+      throw new Error(`Groq API error: ${response.statusText} - ${JSON.stringify(errorData)}`);
     }
 
     const data = await response.json();
@@ -87,7 +89,7 @@ async function searchWeb(query: string, serpApiKey: string): Promise<SearchResul
 async function generateResponse(
   userQuery: string,
   searchResults: SearchResult[],
-  openaiKey: string
+  groqKey: string
 ): Promise<string> {
   const resultsText = searchResults.length > 0
     ? searchResults
@@ -95,14 +97,14 @@ async function generateResponse(
         .join("\n\n")
     : "No search results available. Provide a direct answer based on your knowledge.";
 
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Authorization": `Bearer ${openaiKey}`,
+      "Authorization": `Bearer ${groqKey}`,
     },
     body: JSON.stringify({
-      model: "gpt-4o-mini",
+      model: "mixtral-8x7b-32768",
       messages: [
         {
           role: "system",
@@ -149,13 +151,13 @@ Please provide a comprehensive answer based on these search results. Respond in 
 
   if (!response.ok) {
     const errorData = await response.json();
-    console.error("OpenAI error response:", errorData);
-    throw new Error(`OpenAI API error: ${response.statusText} - ${JSON.stringify(errorData)}`);
+    console.error("Groq error response:", errorData);
+    throw new Error(`Groq API error: ${response.statusText} - ${JSON.stringify(errorData)}`);
   }
 
   const data = await response.json();
   if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-    throw new Error("Invalid response from OpenAI API");
+    throw new Error("Invalid response from Groq API");
   }
   return data.choices[0].message.content;
 }
@@ -181,12 +183,18 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const openaiKey = Deno.env.get("OPENAI_API_KEY");
+    const groqKey = Deno.env.get("GROQ_API_KEY");
     const serpApiKey = Deno.env.get("SERP_API_KEY");
 
-    if (!openaiKey || !serpApiKey) {
+    if (!groqKey || !serpApiKey) {
       return new Response(
-        JSON.stringify({ error: "API keys not configured" }),
+        JSON.stringify({
+          error: "API keys not configured",
+          missing: {
+            groq: !groqKey ? "GROQ_API_KEY not set" : "ok",
+            serp: !serpApiKey ? "SERP_API_KEY not set" : "ok"
+          }
+        }),
         {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -194,7 +202,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const searchQueries = await generateSearchQueries(query, openaiKey);
+    const searchQueries = await generateSearchQueries(query, groqKey);
     console.log("Generated search queries:", searchQueries);
 
     const allResults: SearchResult[] = [];
@@ -214,7 +222,7 @@ Deno.serve(async (req: Request) => {
 
     const topResults = allResults.slice(0, 10);
 
-    const aiResponse = await generateResponse(query, topResults, openaiKey);
+    const aiResponse = await generateResponse(query, topResults, groqKey);
 
     return new Response(
       JSON.stringify({
