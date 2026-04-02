@@ -21,7 +21,7 @@ async function generateSearchQueries(userQuery: string, groqKey: string): Promis
         "Authorization": `Bearer ${groqKey}`,
       },
       body: JSON.stringify({
-        model: "mixtral-8x7b-32768",
+        model: "llama-3.1-8b-instant",
         messages: [
           {
             role: "system",
@@ -104,7 +104,7 @@ async function generateResponse(
       "Authorization": `Bearer ${groqKey}`,
     },
     body: JSON.stringify({
-      model: "mixtral-8x7b-32768",
+      model: "llama-3.1-8b-instant",
       messages: [
         {
           role: "system",
