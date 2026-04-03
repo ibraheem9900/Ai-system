@@ -24,7 +24,7 @@ export default function Navbar({ userName, onSettingsClick }: NavbarProps) {
               className="w-8 h-8"
             />
             <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent">
-              SearchAI
+              ITA AI
             </h1>
           </div>
 
