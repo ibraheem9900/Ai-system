@@ -5,8 +5,9 @@ import ChatSidebar from './ChatSidebar';
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
 import LoadingMessage from './LoadingMessage';
+import Navbar from './Navbar';
+import SettingsModal from './SettingsModal';
 import { useAuth } from '../contexts/AuthContext';
-import { Sparkles } from 'lucide-react';
 
 export default function ChatContainer() {
   const { user } = useAuth();
@@ -14,7 +15,48 @@ export default function ChatContainer() {
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
+  const [userName, setUserName] = useState('');
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [greetingText, setGreetingText] = useState('');
+  const [subtextIndex, setSubtextIndex] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const greetings = [
+    'Hello',
+    'Welcome back',
+    'Hi there',
+    'Good to see you',
+    'Hey',
+  ];
+
+  const subtexts = [
+    "I'm happy to help",
+    'Ask me anything',
+    'How can I assist you today?',
+    'Let me search the web for you',
+  ];
+
+  useEffect(() => {
+    const savedName = localStorage.getItem('userName') || '';
+    setUserName(savedName);
+    const randomGreeting = greetings[Math.floor(Math.random() * greetings.length)];
+    setGreetingText(randomGreeting);
+  }, []);
+
+  useEffect(() => {
+    const subtextTimer = setInterval(() => {
+      setSubtextIndex((prev) => (prev + 1) % subtexts.length);
+    }, 4000);
+    return () => clearInterval(subtextTimer);
+  }, []);
+
+  const getDisplayName = () => {
+    if (userName) return userName;
+    if (user?.email) {
+      return user.email.split('@')[0].charAt(0).toUpperCase() + user.email.split('@')[0].slice(1);
+    }
+    return 'User';
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -170,7 +212,7 @@ export default function ChatContainer() {
           id: crypto.randomUUID(),
           conversation_id: currentConversationId || '',
           role: 'assistant',
-          content: `Error: ${errorMessage}. Please make sure your API keys are configured correctly in your Supabase edge function secrets (OPENAI_API_KEY and SERP_API_KEY).`,
+          content: `Error: ${errorMessage}. Please make sure your API keys are configured correctly in your Supabase edge function secrets (GROQ_API_KEY and SERP_API_KEY).`,
           created_at: new Date().toISOString(),
         },
       ]);
@@ -189,7 +231,7 @@ export default function ChatContainer() {
   };
 
   return (
-    <div className="h-screen flex bg-gray-950">
+    <div className="h-screen flex flex-col lg:flex-row bg-gradient-to-br from-gray-950 via-blue-950 to-gray-950">
       <ChatSidebar
         conversations={conversations}
         currentConversationId={currentConversationId}
@@ -198,31 +240,39 @@ export default function ChatContainer() {
       />
 
       <div className="flex-1 flex flex-col">
+        <Navbar userName={getDisplayName()} onSettingsClick={() => setSettingsOpen(true)} />
+
         {messages.length === 0 && !loading ? (
-          <div className="flex-1 flex items-center justify-center p-8">
-            <div className="text-center max-w-2xl">
-              <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-blue-600 to-purple-600 rounded-3xl mb-6">
-                <Sparkles className="w-10 h-10 text-white" />
+          <div className="flex-1 flex items-center justify-center px-4 py-8 overflow-y-auto">
+            <div className="text-center max-w-2xl w-full animate-slide-down">
+              <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-blue-600 to-cyan-600 rounded-3xl mb-6 shadow-lg shadow-blue-500/30">
+                <img
+                  src="/1775218881775-3ee13392-9669-4d24-ae5f-9ac05cae51cf.png"
+                  alt="SearchAI"
+                  className="w-12 h-12"
+                />
               </div>
-              <h2 className="text-3xl font-bold text-white mb-3">
-                AI Search Assistant
+              <h2 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent mb-2">
+                {greetingText}, {getDisplayName()}
               </h2>
-              <p className="text-gray-400 text-lg mb-8">
-                Ask me anything and I'll search the web to give you accurate, up-to-date answers with sources.
+              <p className="text-gray-400 text-lg mb-8 h-6 transition-opacity duration-300">
+                {subtexts[subtextIndex]}
               </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                <div className="p-4 bg-gray-900 border border-gray-800 rounded-xl text-left">
-                  <p className="text-gray-300">What are the latest AI trends in 2026?</p>
-                </div>
-                <div className="p-4 bg-gray-900 border border-gray-800 rounded-xl text-left">
-                  <p className="text-gray-300">Explain quantum computing simply</p>
-                </div>
-                <div className="p-4 bg-gray-900 border border-gray-800 rounded-xl text-left">
-                  <p className="text-gray-300">Best practices for React performance</p>
-                </div>
-                <div className="p-4 bg-gray-900 border border-gray-800 rounded-xl text-left">
-                  <p className="text-gray-300">Latest developments in space exploration</p>
-                </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                {[
+                  'What are the latest AI trends in 2026?',
+                  'Explain quantum computing simply',
+                  'Best practices for React performance',
+                  'Latest developments in space exploration',
+                ].map((example, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => handleSendMessage(example)}
+                    className="p-4 bg-gray-800/50 hover:bg-gray-700 border border-gray-700 hover:border-blue-500 rounded-xl text-left transition-all duration-200 hover:shadow-lg hover:shadow-blue-500/20 group"
+                  >
+                    <p className="text-gray-300 group-hover:text-white transition">{example}</p>
+                  </button>
+                ))}
               </div>
             </div>
           </div>
@@ -238,6 +288,13 @@ export default function ChatContainer() {
 
         <ChatInput onSend={handleSendMessage} disabled={loading} />
       </div>
+
+      <SettingsModal
+        isOpen={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        userName={userName}
+        onUserNameChange={setUserName}
+      />
     </div>
   );
 }

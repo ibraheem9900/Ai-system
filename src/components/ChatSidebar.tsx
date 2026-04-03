@@ -1,6 +1,5 @@
 import { Conversation } from '../types/chat';
-import { Plus, MessageSquare, LogOut, Menu, X } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
+import { Plus, MessageSquare, Menu, X } from 'lucide-react';
 import { useState } from 'react';
 
 interface ChatSidebarProps {
@@ -16,15 +15,17 @@ export default function ChatSidebar({
   onSelectConversation,
   onNewChat,
 }: ChatSidebarProps) {
-  const { signOut } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
 
   const sidebarContent = (
-    <div className="h-full flex flex-col bg-gray-900 border-r border-gray-800">
+    <div className="h-full flex flex-col bg-gradient-to-b from-gray-900 to-gray-950 border-r border-gray-800">
       <div className="p-4 border-b border-gray-800">
         <button
-          onClick={onNewChat}
-          className="w-full flex items-center gap-3 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition font-medium"
+          onClick={() => {
+            onNewChat();
+            setIsOpen(false);
+          }}
+          className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white rounded-xl transition-all duration-200 font-medium hover:shadow-lg hover:shadow-blue-500/50"
         >
           <Plus className="w-5 h-5" />
           New Chat
@@ -42,9 +43,9 @@ export default function ChatSidebar({
                 onSelectConversation(conv.id);
                 setIsOpen(false);
               }}
-              className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg transition text-left ${
+              className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg transition-all duration-200 text-left ${
                 currentConversationId === conv.id
-                  ? 'bg-gray-800 text-white'
+                  ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg shadow-blue-500/20'
                   : 'text-gray-400 hover:bg-gray-800 hover:text-white'
               }`}
             >
@@ -54,16 +55,6 @@ export default function ChatSidebar({
           ))
         )}
       </div>
-
-      <div className="p-4 border-t border-gray-800">
-        <button
-          onClick={signOut}
-          className="w-full flex items-center gap-3 px-4 py-3 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition"
-        >
-          <LogOut className="w-5 h-5" />
-          Sign Out
-        </button>
-      </div>
     </div>
   );
 
@@ -71,22 +62,22 @@ export default function ChatSidebar({
     <>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed top-4 left-4 z-50 lg:hidden p-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition"
+        className="fixed top-20 left-4 z-50 lg:hidden p-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white rounded-lg transition-all duration-200 shadow-lg"
       >
         {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
       </button>
 
-      <div className="hidden lg:block w-64 h-full">
+      <div className="hidden lg:block w-64 h-screen border-r border-gray-800 bg-gradient-to-b from-gray-900 to-gray-950">
         {sidebarContent}
       </div>
 
       {isOpen && (
         <>
           <div
-            className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+            className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden animate-fade-in"
             onClick={() => setIsOpen(false)}
           />
-          <div className="fixed inset-y-0 left-0 w-64 z-40 lg:hidden">
+          <div className="fixed inset-y-0 left-0 w-64 z-40 lg:hidden animate-slide-in-right">
             {sidebarContent}
           </div>
         </>
