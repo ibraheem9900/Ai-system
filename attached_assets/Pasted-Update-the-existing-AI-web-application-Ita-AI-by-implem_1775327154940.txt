@@ -1,0 +1,62 @@
+Update the existing AI web application “Ita AI” by implementing the following improvements and features. Do not rebuild the app from scratch and do not remove any existing functionality. Only enhance and fix where required.
+
+📱 Navbar & Mobile Fixes
+Fix the hamburger menu in mobile view:
+It must be properly placed inside the navbar
+On click, it should smoothly slide in from the left side
+Add clean animation transitions
+Ensure the close (X) button works properly
+Fix missing “New Chat” option in mobile view so it appears and works correctly
+🎨 UI/UX Improvements
+Improve overall UI to a modern, clean, and professional design
+Add smooth animations across:
+Buttons
+Navigation
+Menus
+Page transitions
+Add an animated background theme (subtle, premium feel)
+🔐 Authentication Enhancements
+Improve the existing login screen into a professional split layout:
+Left side → Login form
+Right side → Visual/branding section
+Add:
+Login with Google
+Signup with Google
+Add a prominent “Create Account” button below login form
+Implement:
+Real-time email fetching from Google
+Email verification using OTP (code sent to email)
+🤖 AI Customization (Settings Upgrade)
+In Settings:
+Keep name input field
+Add a dropdown below it with categories like:
+Education
+Technology
+Business
+Emotional & Sympathetic
+AI behavior must dynamically adapt based on selected category:
+Example: Emotional → empathetic, caring responses
+🧠 AI Personality Fix
+AI name must be “Ita AI”
+Ensure human-like responses:
+Example: If asked “What’s your name?”
+→ “My name is Ita AI”
+Make AI responses more intelligent and natural
+💬 Chat Improvements
+Remove the 4 default pre-prompts from the home screen
+Add voice input feature:
+User can speak and it converts to text prompt
+⚡ Performance & Quality
+Ensure:
+No existing functionality breaks
+Smooth performance
+Proper responsiveness on all devices
+No UI glitches
+🎯 Final Goal
+
+Enhance the current app into a high-quality, production-level AI platform with:
+
+Better UI/UX
+Smooth animations
+Improved AI behavior
+Strong authentication system
