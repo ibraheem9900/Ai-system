@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 import { Conversation, Message } from '../types/chat';
 import ChatSidebar from './ChatSidebar';
 import ChatMessage from './ChatMessage';
@@ -21,20 +21,8 @@ export default function ChatContainer() {
   const [subtextIndex, setSubtextIndex] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const greetings = [
-    'Hello',
-    'Welcome back',
-    'Hi there',
-    'Good to see you',
-    'Hey',
-  ];
-
-  const subtexts = [
-    "I'm happy to help",
-    'Ask me anything',
-    'How can I assist you today?',
-    'Let me search the web for you',
-  ];
+  const greetings = ['Hello', 'Welcome back', 'Hi there', 'Good to see you', 'Hey'];
+  const subtexts = ["I'm happy to help", 'Ask me anything', 'How can I assist you today?', 'Let me search the web for you'];
 
   useEffect(() => {
     const savedName = localStorage.getItem('userName') || '';
@@ -67,67 +55,43 @@ export default function ChatContainer() {
   }, [messages, loading]);
 
   useEffect(() => {
-    if (user) {
-      loadConversations();
-    }
+    if (user) loadConversations();
   }, [user]);
 
   useEffect(() => {
-    if (currentConversationId) {
-      loadMessages(currentConversationId);
-    }
+    if (currentConversationId) loadMessages(currentConversationId);
   }, [currentConversationId]);
 
   const loadConversations = async () => {
-    const { data, error } = await supabase
-      .from('conversations')
-      .select('*')
-      .order('updated_at', { ascending: false });
-
-    if (!error && data) {
+    try {
+      const data = await api.conversations.list();
       setConversations(data);
+    } catch (err) {
+      console.error('Failed to load conversations:', err);
     }
   };
 
   const loadMessages = async (conversationId: string) => {
-    const { data, error } = await supabase
-      .from('messages')
-      .select('*')
-      .eq('conversation_id', conversationId)
-      .order('created_at', { ascending: true });
-
-    if (!error && data) {
+    try {
+      const data = await api.messages.list(conversationId);
       setMessages(data);
+    } catch (err) {
+      console.error('Failed to load messages:', err);
     }
   };
 
   const createConversation = async (firstMessage: string): Promise<string> => {
     const title = firstMessage.slice(0, 50) + (firstMessage.length > 50 ? '...' : '');
-
-    const { data, error } = await supabase
-      .from('conversations')
-      .insert({
-        user_id: user!.id,
-        title,
-      })
-      .select()
-      .single();
-
-    if (error || !data) {
-      throw new Error('Failed to create conversation');
-    }
-
-    setConversations((prev) => [data, ...prev]);
-    setCurrentConversationId(data.id);
-    return data.id;
+    const conv = await api.conversations.create(title);
+    setConversations((prev) => [conv, ...prev]);
+    setCurrentConversationId(conv.id);
+    return conv.id;
   };
 
   const handleSendMessage = async (content: string) => {
     setLoading(true);
-
     try {
       let conversationId = currentConversationId;
-
       if (!conversationId) {
         conversationId = await createConversation(content);
       }
@@ -139,43 +103,11 @@ export default function ChatContainer() {
         content,
         created_at: new Date().toISOString(),
       };
-
       setMessages((prev) => [...prev, userMessage]);
 
-      const { error: userMessageError } = await supabase.from('messages').insert({
-        conversation_id: conversationId,
-        role: 'user',
-        content,
-      });
+      await api.messages.create(conversationId, 'user', content);
 
-      if (userMessageError) throw userMessageError;
-
-      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-search`;
-      console.log('Calling API:', apiUrl);
-
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ query: content, conversationId }),
-      });
-
-      console.log('Response status:', response.status);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Error response:', errorText);
-        throw new Error(`API Error (${response.status}): ${errorText}`);
-      }
-
-      const data = await response.json();
-      console.log('AI Response:', data);
-
-      if (data.error) {
-        throw new Error(data.error);
-      }
+      const data = await api.aiSearch(content);
 
       const assistantMessage: Message = {
         id: crypto.randomUUID(),
@@ -185,23 +117,10 @@ export default function ChatContainer() {
         sources: data.sources,
         created_at: new Date().toISOString(),
       };
-
       setMessages((prev) => [...prev, assistantMessage]);
 
-      const { error: assistantMessageError } = await supabase.from('messages').insert({
-        conversation_id: conversationId,
-        role: 'assistant',
-        content: data.response,
-        sources: data.sources,
-      });
-
-      if (assistantMessageError) throw assistantMessageError;
-
-      await supabase
-        .from('conversations')
-        .update({ updated_at: new Date().toISOString() })
-        .eq('id', conversationId);
-
+      await api.messages.create(conversationId, 'assistant', data.response, data.sources);
+      await api.conversations.touch(conversationId);
       await loadConversations();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -212,7 +131,7 @@ export default function ChatContainer() {
           id: crypto.randomUUID(),
           conversation_id: currentConversationId || '',
           role: 'assistant',
-          content: `Error: ${errorMessage}. Please make sure your API keys are configured correctly in your Supabase edge function secrets (GROQ_API_KEY and SERP_API_KEY).`,
+          content: `Error: ${errorMessage}. Please make sure your GROQ_API_KEY and SERP_API_KEY are configured in the environment settings.`,
           created_at: new Date().toISOString(),
         },
       ]);
