@@ -10,23 +10,35 @@ export default function ChatInput({ onSend, disabled }: ChatInputProps) {
   const [input, setInput] = useState('');
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<any>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    submit();
+  };
+
+  const submit = () => {
     if (input.trim() && !disabled) {
       onSend(input.trim());
       setInput('');
+      if (textareaRef.current) {
+        textareaRef.current.style.height = '48px';
+      }
     }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      if (input.trim() && !disabled) {
-        onSend(input.trim());
-        setInput('');
-      }
+      submit();
     }
+  };
+
+  const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInput(e.target.value);
+    const el = e.target;
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 160) + 'px';
   };
 
   const toggleVoice = () => {
@@ -35,73 +47,62 @@ export default function ChatInput({ onSend, disabled }: ChatInputProps) {
       setIsListening(false);
       return;
     }
-
-    const SpeechRecognition =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-
-    if (!SpeechRecognition) {
-      alert('Voice input is not supported in this browser. Try Chrome or Edge.');
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) {
+      alert('Voice input is not supported in this browser. Please use Chrome or Edge.');
       return;
     }
-
-    const recognition = new SpeechRecognition();
+    const recognition = new SR();
     recognitionRef.current = recognition;
     recognition.continuous = false;
     recognition.interimResults = false;
     recognition.lang = 'en-US';
-
-    recognition.onstart = () => setIsListening(true);
+    recognition.onstart  = () => setIsListening(true);
     recognition.onresult = (event: any) => {
-      const transcript = event.results[0][0].transcript;
-      setInput((prev) => (prev ? prev + ' ' + transcript : transcript));
+      const t = event.results[0][0].transcript;
+      setInput((prev) => (prev ? prev + ' ' + t : t));
     };
-    recognition.onend = () => setIsListening(false);
-    recognition.onerror = () => setIsListening(false);
-
+    recognition.onend    = () => setIsListening(false);
+    recognition.onerror  = () => setIsListening(false);
     recognition.start();
   };
 
   return (
-    <form onSubmit={handleSubmit} className="border-t border-gray-800/60 glass p-4 sm:p-5">
+    <form onSubmit={handleSubmit} className="border-t border-gray-800/50 glass p-3 sm:p-4">
       <div className="max-w-4xl mx-auto">
-        <div className="relative flex items-end gap-2">
+        <div className="flex items-end gap-2">
           <div className="flex-1 relative">
             <textarea
+              ref={textareaRef}
               value={input}
-              onChange={(e) => {
-                setInput(e.target.value);
-                e.target.style.height = 'auto';
-                e.target.style.height = Math.min(e.target.scrollHeight, 160) + 'px';
-              }}
+              onChange={handleInput}
               onKeyDown={handleKeyDown}
               disabled={disabled}
-              placeholder="Ask anything... (Enter to send, Shift+Enter for new line)"
+              placeholder="Ask anything..."
               rows={1}
-              className="w-full px-4 py-3 bg-gray-800/60 border border-gray-700 hover:border-gray-600 focus:border-blue-500 rounded-xl text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/40 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm resize-none overflow-hidden"
+              className="w-full px-4 py-3 bg-gray-800/70 border border-gray-700/70 hover:border-gray-600 focus:border-blue-500 rounded-xl text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm resize-none"
               style={{ minHeight: '48px', maxHeight: '160px' }}
             />
           </div>
 
-          {/* Voice button */}
           <button
             type="button"
             onClick={toggleVoice}
             disabled={disabled}
+            title={isListening ? 'Stop' : 'Voice input'}
             className={`flex-shrink-0 p-3 rounded-xl transition-all duration-200 disabled:opacity-50 active:scale-90 ${
               isListening
                 ? 'bg-red-600 hover:bg-red-700 text-white animate-voice-pulse'
-                : 'bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white border border-gray-700'
+                : 'bg-gray-800/70 hover:bg-gray-700 text-gray-400 hover:text-white border border-gray-700/70'
             }`}
-            title={isListening ? 'Stop listening' : 'Voice input'}
           >
             {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
           </button>
 
-          {/* Send button */}
           <button
             type="submit"
             disabled={disabled || !input.trim()}
-            className="btn-primary flex-shrink-0 p-3 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 rounded-xl text-white transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-blue-500/20 active:scale-90"
+            className="btn-primary flex-shrink-0 p-3 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 rounded-xl text-white disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-blue-500/20 active:scale-90"
           >
             <Send className="w-5 h-5" />
           </button>
@@ -110,13 +111,9 @@ export default function ChatInput({ onSend, disabled }: ChatInputProps) {
         {isListening && (
           <div className="flex items-center gap-2 mt-2 px-1 animate-fade-in">
             <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-            <span className="text-xs text-red-400">Listening... speak now</span>
+            <span className="text-xs text-red-400">Listening… speak now</span>
           </div>
         )}
-
-        <p className="text-xs text-gray-600 mt-2 text-center">
-          Ita AI · AI-powered search with real-time data
-        </p>
       </div>
     </form>
   );

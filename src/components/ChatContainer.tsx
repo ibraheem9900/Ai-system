@@ -9,6 +9,8 @@ import Navbar from './Navbar';
 import SettingsModal from './SettingsModal';
 import { useAuth } from '../contexts/AuthContext';
 
+const APP_LOGO = '/1775218881775-3ee13392-9669-4d24-ae5f-9ac05cae51cf.png';
+
 export default function ChatContainer() {
   const { user } = useAuth();
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -28,7 +30,7 @@ export default function ChatContainer() {
     "I'm here to help you",
     'Ask me anything',
     'How can I assist you today?',
-    'Let me search the web for you',
+    "Let me search the web for you",
   ];
 
   useEffect(() => {
@@ -67,28 +69,20 @@ export default function ChatContainer() {
 
   const loadConversations = async () => {
     const { data, error } = await supabase
-      .from('conversations')
-      .select('*')
-      .order('updated_at', { ascending: false });
+      .from('conversations').select('*').order('updated_at', { ascending: false });
     if (!error && data) setConversations(data);
   };
 
   const loadMessages = async (conversationId: string) => {
     const { data, error } = await supabase
-      .from('messages')
-      .select('*')
-      .eq('conversation_id', conversationId)
-      .order('created_at', { ascending: true });
+      .from('messages').select('*').eq('conversation_id', conversationId).order('created_at', { ascending: true });
     if (!error && data) setMessages(data);
   };
 
   const createConversation = async (firstMessage: string): Promise<string> => {
     const title = firstMessage.slice(0, 50) + (firstMessage.length > 50 ? '...' : '');
     const { data, error } = await supabase
-      .from('conversations')
-      .insert({ user_id: user!.id, title })
-      .select()
-      .single();
+      .from('conversations').insert({ user_id: user!.id, title }).select().single();
     if (error || !data) throw new Error('Failed to create conversation');
     setConversations((prev) => [data, ...prev]);
     setCurrentConversationId(data.id);
@@ -112,17 +106,14 @@ export default function ChatContainer() {
 
       await supabase.from('messages').insert({ conversation_id: conversationId, role: 'user', content });
 
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-search`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ query: content, conversationId, personality }),
-        }
-      );
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-search`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ query: content, conversationId, personality }),
+      });
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -143,31 +134,22 @@ export default function ChatContainer() {
       setMessages((prev) => [...prev, assistantMessage]);
 
       await supabase.from('messages').insert({
-        conversation_id: conversationId,
-        role: 'assistant',
-        content: data.response,
-        sources: data.sources,
+        conversation_id: conversationId, role: 'assistant',
+        content: data.response, sources: data.sources,
       });
-
-      await supabase
-        .from('conversations')
-        .update({ updated_at: new Date().toISOString() })
-        .eq('id', conversationId);
-
+      await supabase.from('conversations')
+        .update({ updated_at: new Date().toISOString() }).eq('id', conversationId);
       await loadConversations();
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       console.error('Error sending message:', msg);
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: crypto.randomUUID(),
-          conversation_id: currentConversationId || '',
-          role: 'assistant',
-          content: `Something went wrong: ${msg}. Please check that your GROQ_API_KEY and SERP_API_KEY are configured in your Supabase edge function secrets.`,
-          created_at: new Date().toISOString(),
-        },
-      ]);
+      setMessages((prev) => [...prev, {
+        id: crypto.randomUUID(),
+        conversation_id: currentConversationId || '',
+        role: 'assistant',
+        content: `Something went wrong: ${msg}. Please check that your GROQ_API_KEY and SERP_API_KEY are configured in your Supabase edge function secrets.`,
+        created_at: new Date().toISOString(),
+      }]);
     } finally {
       setLoading(false);
     }
@@ -179,8 +161,11 @@ export default function ChatContainer() {
   };
 
   return (
-    <div className="h-screen flex flex-col lg:flex-row bg-gray-950 relative overflow-hidden">
-      {/* Animated background blobs */}
+    <div
+      className="flex flex-col lg:flex-row bg-gray-950 relative overflow-hidden"
+      style={{ height: '100dvh' }}
+    >
+      {/* Background blobs */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="blob blob-1" style={{ top: '-10%', left: '-5%' }} />
         <div className="blob blob-2" style={{ bottom: '-5%', right: '-5%' }} />
@@ -196,7 +181,7 @@ export default function ChatContainer() {
         onClose={() => setSidebarOpen(false)}
       />
 
-      <div className="flex-1 flex flex-col relative z-10 min-w-0">
+      <div className="flex-1 flex flex-col relative z-10 min-w-0 overflow-hidden">
         <Navbar
           userName={getDisplayName()}
           onSettingsClick={() => setSettingsOpen(true)}
@@ -204,30 +189,26 @@ export default function ChatContainer() {
         />
 
         {messages.length === 0 && !loading ? (
-          <div className="flex-1 flex items-center justify-center px-4 py-8 overflow-y-auto">
-            <div className="text-center max-w-xl w-full animate-slide-down">
-              <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-blue-600 to-cyan-500 rounded-3xl mb-6 shadow-2xl shadow-blue-500/30 animate-pulse-glow">
-                <img
-                  src="/1775218881775-3ee13392-9669-4d24-ae5f-9ac05cae51cf.png"
-                  alt="Ita AI"
-                  className="w-12 h-12"
-                />
+          <div className="flex-1 themed-scroll flex items-center justify-center px-4 py-8">
+            <div className="text-center max-w-md w-full animate-slide-down">
+              <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-blue-600/40 to-cyan-500/40 rounded-3xl mb-5 shadow-2xl shadow-blue-500/20 animate-pulse-glow border border-blue-500/20">
+                <img src={APP_LOGO} alt="ITA AI" className="w-12 h-12" />
               </div>
-              <h2 className="text-3xl sm:text-4xl font-bold mb-2">
-                <span className="gradient-text-animated">{greetingText}, {getDisplayName()}</span>
+              <h2 className="text-3xl sm:text-4xl font-black mb-2 tracking-wide gradient-text-animated">
+                {greetingText}, {getDisplayName()}
               </h2>
-              <p className="text-gray-500 text-lg h-7 transition-all duration-500">
+              <p className="text-gray-500 text-base h-6 transition-all duration-500">
                 {subtexts[subtextIndex]}
               </p>
             </div>
           </div>
         ) : (
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 themed-scroll">
             {messages.map((message) => (
               <ChatMessage key={message.id} message={message} />
             ))}
             {loading && <LoadingMessage />}
-            <div ref={messagesEndRef} />
+            <div ref={messagesEndRef} className="h-4" />
           </div>
         )}
 
