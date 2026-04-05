@@ -8,6 +8,7 @@ import LoadingMessage from './LoadingMessage';
 import Navbar from './Navbar';
 import SettingsModal from './SettingsModal';
 import { useAuth } from '../contexts/AuthContext';
+import { getConversationalResponse } from '../lib/conversationalAI';
 
 const APP_LOGO = '/1775218881775-3ee13392-9669-4d24-ae5f-9ac05cae51cf.png';
 
@@ -30,7 +31,7 @@ export default function ChatContainer() {
     "I'm here to help you",
     'Ask me anything',
     'How can I assist you today?',
-    "Let me search the web for you",
+    'Let me search the web for you',
   ];
 
   useEffect(() => {
@@ -104,6 +105,31 @@ export default function ChatContainer() {
       };
       setMessages((prev) => [...prev, userMessage]);
 
+      // ── Conversational detection — instant response, no API call ──────────
+      const conversationalReply = getConversationalResponse(content, personality);
+
+      if (conversationalReply) {
+        // Tiny delay to feel natural (not instant-robotic)
+        await new Promise((r) => setTimeout(r, 350));
+
+        const assistantMessage: Message = {
+          id: crypto.randomUUID(),
+          conversation_id: conversationId,
+          role: 'assistant',
+          content: conversationalReply,
+          created_at: new Date().toISOString(),
+        };
+        setMessages((prev) => [...prev, assistantMessage]);
+
+        // Save both messages to Supabase in the background
+        await supabase.from('messages').insert({ conversation_id: conversationId, role: 'user', content });
+        await supabase.from('messages').insert({ conversation_id: conversationId, role: 'assistant', content: conversationalReply });
+        await supabase.from('conversations').update({ updated_at: new Date().toISOString() }).eq('id', conversationId);
+        await loadConversations();
+        return;
+      }
+
+      // ── Real query — call edge function with web search ───────────────────
       await supabase.from('messages').insert({ conversation_id: conversationId, role: 'user', content });
 
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-search`, {
@@ -137,9 +163,9 @@ export default function ChatContainer() {
         conversation_id: conversationId, role: 'assistant',
         content: data.response, sources: data.sources,
       });
-      await supabase.from('conversations')
-        .update({ updated_at: new Date().toISOString() }).eq('id', conversationId);
+      await supabase.from('conversations').update({ updated_at: new Date().toISOString() }).eq('id', conversationId);
       await loadConversations();
+
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       console.error('Error sending message:', msg);
@@ -161,10 +187,7 @@ export default function ChatContainer() {
   };
 
   return (
-    <div
-      className="flex flex-col lg:flex-row bg-gray-950 relative overflow-hidden"
-      style={{ height: '100dvh' }}
-    >
+    <div className="flex flex-col lg:flex-row bg-gray-950 relative overflow-hidden" style={{ height: '100dvh' }}>
       {/* Background blobs */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="blob blob-1" style={{ top: '-10%', left: '-5%' }} />
