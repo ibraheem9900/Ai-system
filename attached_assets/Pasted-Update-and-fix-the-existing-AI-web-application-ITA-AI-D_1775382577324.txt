@@ -1,0 +1,86 @@
+Update and fix the existing AI web application “ITA AI”. Do not rebuild from scratch and do not remove existing functionality. Only fix issues and enhance UI/UX, responsiveness, and AI behavior.
+
+🔐 Critical Fix – Google Authentication
+Fix “Login with Google” (currently not working as shown in screenshot)
+Ensure:
+Proper Google OAuth integration
+Smooth login/signup flow
+Real-time email fetching
+No errors during authentication
+📱 Mobile Scroll Issue (Important)
+Fix issue where users cannot scroll up/down on mobile while viewing AI responses
+Ensure:
+Smooth vertical scrolling works
+No overflow/height blocking issues
+Chat container behaves correctly
+🎨 Login Screen UI Fix
+Replace sparkle icon with custom app logo
+Right side:
+Add background image
+Apply blur overlay effect
+Maintain a clean split layout (left: form, right: visual)
+🖥️ Desktop Layout & Responsiveness Fix
+Fix:
+Hidden buttons on desktop
+Misaligned UI elements
+Ensure:
+Layout adapts to full screen width
+No need to manually resize container
+Everything is properly aligned and visible
+Make container responsive according to screen size automatically
+🎨 Scrolling & Theme Consistency (NEW – IMPORTANT)
+All scrolling elements across the app must be improved:
+Scrollbars should be styled according to the AI theme
+No default browser scrollbars
+Ensure:
+Smooth scrolling animations
+Consistent design across:
+Chat area
+Sidebars
+Dropdowns
+Any scrollable container
+Add subtle animated scrollbar effects matching the overall UI theme
+🤖 AI Behavior & Personality Upgrade (Very Important)
+AI should NOT behave like a raw data fetcher
+Improve responses to be:
+Human-like
+Emotionally aware
+Example:
+“Hey” → “Hey! How are you doing today?” (NOT definitions)
+AI must:
+Understand intent
+Respond naturally
+Feel like a real assistant
+⚙️ Dynamic AI Behavior (Settings Integration)
+Based on selected category:
+Education → intelligent explanations
+Technology → technical responses
+Business → practical advice & reality checks
+Emotional → empathetic, caring tone
+AI must dynamically adjust behavior accordingly
+🎛️ Settings Dropdown Improvement
+Improve category dropdown:
+Add smooth animations
+Make it modern and responsive
+🔤 AI Naming Fix
+AI name must always be:
+“ITA AI” (UPPERCASE)
+Fix all inconsistent variations
+⚡ Final Requirements
+Do not break existing features
+Ensure:
+Smooth performance
+Clean modern UI
+Fully responsive (mobile + desktop)
+No bugs or UI glitches
+🎯 Goal
+
+Upgrade the app into a premium, production-level AI platform with:
+
+Working Google authentication
+Smooth scrolling & animations
+Perfect responsive layout
+Emotionally intelligent AI
+Consistent themed UI
+
+and also the placeholder in the chat sections should be just ask anything not ask anything (shift enter for new line etc etc)
